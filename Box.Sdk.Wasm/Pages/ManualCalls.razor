@@ -1,0 +1,120 @@
+﻿@page "/manualCalls"
+@using System.Text.Json
+@using Box.Sdk.Wasm.Utils
+@using Box.V2
+@using Box.V2.Auth
+@using Box.V2.Config
+@using Box.V2.Models
+@using Box.V2.CCGAuth
+@using static Box.Sdk.Wasm.Utils.Enums
+@using static Box.Sdk.Wasm.Utils.ClientHelper
+
+<PageTitle>ManualCalls</PageTitle>
+
+<h1>Manual Calls</h1>
+
+<EditForm Model="@model" OnValidSubmit="@callApi">
+    <p>
+        <InputRadioGroup @bind-Value="model.auth">
+            Authentication method:
+            <br>
+            @foreach (var authMethod in (Auth[])Enum
+                .GetValues(typeof(Auth)))
+            {
+                <InputRadio Value="authMethod" />
+                <text>&nbsp;</text>@authMethod<br>
+            }
+        </InputRadioGroup>
+    </p>
+
+    @if(model.auth == Auth.Token)
+    {
+        <p>
+            Developer Token
+            <input @bind="model.token" />
+        </p>
+    }else if (model.auth == Auth.CCG)
+    {
+        <p>
+            Client Id
+            <input @bind="model.clientId" />
+        </p>
+        <p>
+            Client Secret
+            <input @bind="model.clientSecret" />
+        </p>
+        <p>
+            User Id
+            <input @bind="model.userId" />
+        </p>
+    }
+
+
+    <button class="btn btn-primary" type="submit">Call api</button>
+</EditForm>
+
+@if (folderItems == null)
+{
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Created By</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in folderItems.Entries)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>@item.Type</td>
+                    <td>@item.Name</td>
+                    <td>@item.CreatedAt</td>
+                    <td>@item.CreatedBy</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<p>@jsonResponse</p>
+
+@code {
+    public class ManualCallModel
+    {
+        public Auth auth { get; set; } = Auth.Token;
+        public string clientId { get; set; }
+        public string clientSecret { get; set; }
+        public string userId { get; set; }
+        public string token { get; set; }
+    }
+
+    public ManualCallModel model = new ManualCallModel();
+    private BoxUser currentUser = null;
+    private BoxCollection<BoxItem> folderItems = null;
+
+    private string jsonResponse;
+
+    private async Task callApi()
+    {
+        IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+
+        try
+        {
+            //currentUser = await client.UsersManager.GetCurrentUserInformationAsync();
+            folderItems = await client.FoldersManager.GetFolderItemsAsync("0", 100);
+            jsonResponse = JsonSerializer.Serialize(folderItems);
+            Console.WriteLine(folderItems.Entries);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+}

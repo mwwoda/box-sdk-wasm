@@ -1,0 +1,172 @@
+﻿@page "/reflectionCalls"
+@using System.Text.Json
+@using Box.Sdk.Wasm.Utils
+@using Box.V2
+@using Box.V2.Auth
+@using Box.V2.Config
+@using Box.V2.Models
+@using Box.V2.CCGAuth
+@using System.Reflection
+@using static Box.Sdk.Wasm.Utils.Enums
+@using static Box.Sdk.Wasm.Utils.ClientHelper
+
+<PageTitle>ReflectionCalls</PageTitle>
+
+<h3>ReflectionCalls</h3>
+
+<EditForm Model="@model" OnValidSubmit="@callApi">
+    <p>
+        <InputRadioGroup @bind-Value="model.auth">
+            Authentication method:
+            <br>
+            @foreach (var authMethod in (Auth[])Enum
+                .GetValues(typeof(Auth)))
+            {
+                <InputRadio Value="authMethod" />
+                <text>&nbsp;</text>@authMethod<br>
+            }
+        </InputRadioGroup>
+    </p>
+
+    @if(model.auth == Auth.Token)
+    {
+        <p>
+            Developer Token
+            <input @bind="model.token" />
+        </p>
+    }else if (model.auth == Auth.CCG)
+    {
+        <p>
+            Client Id
+            <input @bind="model.clientId" />
+        </p>
+        <p>
+            Client Secret
+            <input @bind="model.clientSecret" />
+        </p>
+        <p>
+            User Id
+            <input @bind="model.userId" />
+        </p>
+    }
+
+    <p>
+        <select @bind="model.typeName">
+            @if (types != null)
+            {
+                @foreach (var type in types)
+                {
+                    <option value="@type">@type.Name</option>
+                }
+            }
+        </select>
+    </p>
+
+    <p>
+        <select @bind="model.methodName">
+            @if (model.methods != null)
+            {
+                @foreach (var method in model.methods)
+                {
+                    <option value="@method.Name">@method.Name</option>
+                }
+            }
+        </select>
+    </p>
+
+    @if (model.parameters != null)
+    {
+        @foreach (var parameter in model.parameters)
+        {
+            <p>
+                Name: @parameter.Name<br>
+                @if(parameter.ParameterType.Name == "String"){
+                     <input type="text" id="@parameter.Name" name="@parameter.Name"><br><br>
+                }
+                else if (parameter.ParameterType.Name == "Boolean"){
+                    <input type="checkbox" id="@parameter.Name" name="@parameter.Name"><br><br>
+                }
+                else if (parameter.ParameterType.Name == "Stream")
+                {
+                        <InputFile multiple />
+                }
+                else {
+                    <span>Type: @parameter.ParameterType.Name not supported</span>
+                }
+            </p>
+         }
+    }
+
+
+    <button class="btn btn-primary" type="submit">Call api</button>
+</EditForm>
+
+@code {
+    public class ReflectionCallModel
+    {
+        public Auth auth { get; set; } = Auth.Token;
+        public string clientId { get; set; }
+        public string clientSecret { get; set; }
+        public string userId { get; set; }
+        public string token { get; set; }
+
+        public Type type 
+        {
+            get { return type; }
+            set
+            {
+                type = value;
+                methods = ReflectionHelper.GetMethods("aaa");
+            }
+        }
+
+        private string _typeName;
+        public string typeName
+        {
+
+            get { return _typeName; }
+            set
+            {
+                _typeName = value;
+                methods = ReflectionHelper.GetMethods(value);
+            }
+        }
+
+        private string _methodName;
+        public string methodName
+        {
+
+            get { return _methodName; }
+            set
+            {
+                _methodName = value;
+                parameters = ReflectionHelper.GetParameters(typeName, value);
+            }
+        }
+
+        public List<MethodInfo> methods { get; set; } = null;
+
+        public List<ParameterInfo> parameters { get; set; } = null;
+    }
+
+    public ReflectionCallModel model = new ReflectionCallModel();
+
+    private string jsonResponse;
+    private List<Type> types = ReflectionHelper.GetTypes();
+
+    private async Task callApi()
+    {
+        IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+
+        try
+        {
+            var res = await client.FoldersManager.GetFolderItemsAsync("0", 100);
+            jsonResponse = JsonSerializer.Serialize(res);
+            Console.WriteLine(res);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+}

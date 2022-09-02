@@ -1,0 +1,121 @@
+﻿@page "/customCalls"
+@using System.Text.Json
+@using Box.Sdk.Wasm.Utils
+@using Box.V2
+@using Box.V2.Auth
+@using Box.V2.Config
+@using Box.V2.Models
+@using Box.V2.CCGAuth
+@using static Box.Sdk.Wasm.Utils.Enums
+@using static Box.Sdk.Wasm.Utils.ClientHelper
+
+<PageTitle>CustomCalls</PageTitle>
+
+<h1>CustomCalls</h1>
+
+<EditForm Model="@model" OnValidSubmit="@callApi">
+    <p>
+        <InputRadioGroup @bind-Value="model.auth">
+            Authentication method:
+            <br>
+            @foreach (var authMethod in (Auth[])Enum
+                .GetValues(typeof(Auth)))
+            {
+                <InputRadio Value="authMethod" />
+                <text>&nbsp;</text>@authMethod<br>
+            }
+        </InputRadioGroup>
+    </p>
+
+    @if(model.auth == Auth.Token)
+    {
+        <p>
+            Developer Token
+            <input @bind="model.token" />
+        </p>
+    }else if (model.auth == Auth.CCG)
+    {
+        <p>
+            Client Id
+            <input @bind="model.clientId" />
+        </p>
+        <p>
+            Client Secret
+            <input @bind="model.clientSecret" />
+        </p>
+        <p>
+            User Id
+            <input @bind="model.userId" />
+        </p>
+    }
+
+    <p>
+        Path
+        <input @bind="model.path" />
+    </p>
+
+    <p>
+        <InputRadioGroup @bind-Value="model.method">
+            Request method:
+            <br>
+            @foreach (var reqMethod in (RequestMethod[])Enum
+                .GetValues(typeof(RequestMethod)))
+            {
+                <InputRadio Value="reqMethod" />
+                <text>&nbsp;</text>@reqMethod<br>
+            }
+        </InputRadioGroup>
+    </p>
+
+    <p>
+        Payload
+        <textarea rows="10" cols=50 @bind="model.payload" />
+    </p>
+
+
+
+    <button class="btn btn-primary" type="submit">Call api</button>
+</EditForm>
+
+<p>@jsonResponse</p>
+
+@code {
+    public class CustomCallModel
+    {
+        public Auth auth { get; set; } = Auth.Token;
+        public string clientId { get; set; }
+        public string clientSecret { get; set; }
+        public string userId { get; set; }
+        public string token { get; set; }
+
+        public string path { get; set; }
+        public RequestMethod method { get; set; }
+        public string payload { get; set; }
+    }
+
+    public CustomCallModel model = new CustomCallModel();
+    private BoxUser currentUser = null;
+    private IBoxResponse<object> response = null;
+
+    private string jsonResponse;
+
+    private async Task callApi()
+    {
+        IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+        client.AddResourcePlugin<BoxCustomManager>();
+        var customManager = client.ResourcePlugins.Get<BoxCustomManager>();
+
+        try
+        {
+            response = await customManager.CustomApiCall(model.path, model.method, model.payload);
+            //jsonResponse = JsonSerializer.Serialize(response);
+            jsonResponse = response.ContentString;
+            Console.WriteLine(response);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+}

@@ -1,0 +1,152 @@
+﻿@page "/fileUpload"
+@using System.Text.Json
+@using Box.Sdk.Wasm.Utils
+@using Box.V2
+@using Box.V2.Auth
+@using Box.V2.Config
+@using Box.V2.Models
+@using Box.V2.CCGAuth
+@using static Box.Sdk.Wasm.Utils.Enums
+@using static Box.Sdk.Wasm.Utils.ClientHelper
+
+<PageTitle>FileUpload</PageTitle>
+
+<h1>File Upload</h1>
+
+<EditForm Model="@model" OnValidSubmit="@callApi">
+    <p>
+        <InputRadioGroup @bind-Value="model.auth">
+            Authentication method:
+            <br>
+            @foreach (var authMethod in (Auth[])Enum
+                .GetValues(typeof(Auth)))
+            {
+                <InputRadio Value="authMethod" />
+                <text>&nbsp;</text>@authMethod<br>
+            }
+        </InputRadioGroup>
+    </p>
+
+    @if(model.auth == Auth.Token)
+    {
+        <p>
+            Developer Token
+            <input @bind="model.token" />
+        </p>
+    }else if (model.auth == Auth.CCG)
+    {
+        <p>
+            Client Id
+            <input @bind="model.clientId" />
+        </p>
+        <p>
+            Client Secret
+            <input @bind="model.clientSecret" />
+        </p>
+        <p>
+            User Id
+            <input @bind="model.userId" />
+        </p>
+    }
+
+        <p>
+            Filename
+            <input @bind="model.fileName" />
+        </p>
+
+        <p>
+            Parent folder id
+            <input @bind="model.parentFolderId" />
+        </p>
+
+    <InputFile OnChange="@LoadFiles" multiple />
+
+
+</EditForm>
+
+
+
+<p>@jsonResponse</p>
+
+@code {
+    public class ManualCallModel
+    {
+        public Auth auth { get; set; } = Auth.Token;
+        public string clientId { get; set; }
+        public string clientSecret { get; set; }
+        public string userId { get; set; }
+        public string token { get; set; }
+
+        public string fileName { get; set; }
+        public string parentFolderId { get; set; }
+    }
+
+    public ManualCallModel model = new ManualCallModel();
+    private BoxUser currentUser = null;
+    private BoxFile resFile = null;
+
+    private string jsonResponse;
+    private MemoryStream memoryStream;
+
+    private async Task callApi()
+    {
+    }
+
+    private List<IBrowserFile> loadedFiles = new();
+    private long maxFileSize = 1024 * 15;
+    private int maxAllowedFiles = 3;
+    private bool isLoading;
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        loadedFiles.Clear();
+
+        foreach (var file in e.GetMultipleFiles(1))
+        {
+            try
+            {
+                loadedFiles.Add(file);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("File: {Filename} Error: {Error}", 
+                    file.Name, ex.Message);
+            }
+        }
+
+        var firstFile = loadedFiles.First();
+        var memoryStream = new MemoryStream();
+        try
+        {
+            await firstFile.OpenReadStream().CopyToAsync(memoryStream);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+
+        isLoading = false;
+
+        IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+
+        try
+        {
+            resFile = await client.FilesManager.UploadAsync(new BoxFileRequest
+                {
+                    Name = model.fileName,
+                    Parent = new BoxRequestEntity
+                    {
+                        Id = model.parentFolderId,
+                        Type = BoxType.folder
+                }
+            }, memoryStream);
+            jsonResponse = JsonSerializer.Serialize(resFile);
+            Console.WriteLine(resFile);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+}
