@@ -79,7 +79,6 @@
         @foreach (var parameter in model.parameters)
         {
             <p>
-                Name: @parameter.Name<br>
                 @if(parameter.ParameterType.Name == "String"){
                      <input type="text" id="@parameter.Name" name="@parameter.Name"><br><br>
                 }
@@ -91,7 +90,7 @@
                         <InputFile multiple />
                 }
                 else {
-                    <span>Type: @parameter.ParameterType.Name not supported</span>
+                    <span>@parameter.ParameterType.Name not supported</span>
                 }
             </p>
          }
