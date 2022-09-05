@@ -1,4 +1,4 @@
-﻿@page "/getRootFolder"
+﻿@page "/getRootFolderContent"
 @using System.Text.Json
 @using Box.Sdk.Wasm.Utils
 @using Box.V2
@@ -11,7 +11,7 @@
 
 <PageTitle>GetRootFolder</PageTitle>
 
-<h1>Get root folder contents</h1>
+<h1>Get root folder content</h1>
 
 <EditForm Model="@model" OnValidSubmit="@callApi">
     <p>
