@@ -79,6 +79,7 @@
         @foreach (var parameter in model.parameters)
         {
             <p>
+                @parameter.Name<br>
                 @if(parameter.ParameterType.Name == "String"){
                      <input type="text" id="@parameter.Name" name="@parameter.Name"><br><br>
                 }
