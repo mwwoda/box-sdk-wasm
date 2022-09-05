@@ -1,4 +1,4 @@
-﻿@page "/manualCalls"
+﻿@page "/getRootFolder"
 @using System.Text.Json
 @using Box.Sdk.Wasm.Utils
 @using Box.V2
@@ -9,9 +9,9 @@
 @using static Box.Sdk.Wasm.Utils.Enums
 @using static Box.Sdk.Wasm.Utils.ClientHelper
 
-<PageTitle>ManualCalls</PageTitle>
+<PageTitle>GetRootFolder</PageTitle>
 
-<h1>Manual Calls</h1>
+<h1>Get root folder contents</h1>
 
 <EditForm Model="@model" OnValidSubmit="@callApi">
     <p>
