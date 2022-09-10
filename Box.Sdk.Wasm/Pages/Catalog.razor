@@ -7,6 +7,7 @@
 @using Box.V2.Models
 @using Box.V2.CCGAuth
 @using System.Reflection
+@using System.Text.RegularExpressions
 @using static Box.Sdk.Wasm.Utils.Enums
 @using static Box.Sdk.Wasm.Utils.ClientHelper
 
@@ -14,159 +15,345 @@
 
 <h3>Catalog</h3>
 
-<EditForm Model="@model" OnValidSubmit="@callApi">
-    <p>
-        <InputRadioGroup @bind-Value="model.auth">
-            Authentication method:
-            <br>
-            @foreach (var authMethod in (Auth[])Enum
-                .GetValues(typeof(Auth)))
-            {
-                <InputRadio Value="authMethod" />
-                <text>&nbsp;</text>@authMethod<br>
-            }
-        </InputRadioGroup>
-    </p>
+<EditForm Model="@model" OnValidSubmit="@generateCode">
+	<p>
+		<InputRadioGroup @bind-Value="model.auth">
+			Authentication method:
+			<br>
+			@foreach (var authMethod in (Auth[])Enum
+					.GetValues(typeof(Auth)))
+			{
+				<InputRadio Value="authMethod" />
+				<text>&nbsp;</text>
 
-    @if(model.auth == Auth.Token)
-    {
-        <p>
-            Developer Token
-            <input @bind="model.token" />
-        </p>
-    }else if (model.auth == Auth.CCG)
-    {
-        <p>
-            Client Id
-            <input @bind="model.clientId" />
-        </p>
-        <p>
-            Client Secret
-            <input @bind="model.clientSecret" />
-        </p>
-        <p>
-            User Id
-            <input @bind="model.userId" />
-        </p>
-    }
+				@authMethod
 
-    <p>
-        <select @bind="model.typeName">
-            @if (types != null)
-            {
-                @foreach (var type in types)
-                {
-                    <option value="@type">@type.Name</option>
-                }
-            }
-        </select>
-    </p>
+				<br>
+			}
+		</InputRadioGroup>
+	</p>
 
-    <p>
-        <select @bind="model.methodName">
-            @if (model.methods != null)
-            {
-                @foreach (var method in model.methods)
-                {
-                    <option value="@method.Name">@method.Name</option>
-                }
-            }
-        </select>
-    </p>
+	@if (model.auth == Auth.Token)
+	{
+		<p>
+			Developer Token
+			<input @bind="model.token" />
+		</p>
+	}
+	else if (model.auth == Auth.CCG)
+	{
+		<p>
+			Client Id
+			<input @bind="model.clientId" />
+		</p>
+		<p>
+			Client Secret
+			<input @bind="model.clientSecret" />
+		</p>
+		<p>
+			User Id
+			<input @bind="model.userId" />
+		</p>
+	}
 
-    @if (model.parameters != null)
-    {
-        @foreach (var parameter in model.parameters)
-        {
-            <p>
-                @parameter.Name<br>
-                @if(parameter.ParameterType.Name == "String"){
-                     <input type="text" id="@parameter.Name" name="@parameter.Name"><br><br>
-                }
-                else if (parameter.ParameterType.Name == "Boolean"){
-                    <input type="checkbox" id="@parameter.Name" name="@parameter.Name"><br><br>
-                }
-                else if (parameter.ParameterType.Name == "Stream")
-                {
-                        <InputFile multiple />
-                }
-                else {
-                    <span>@parameter.ParameterType.Name not supported</span>
-                }
-            </p>
-         }
-    }
+	@*	<p>
+	<select @bind="model.typeName">
+	@if (types != null)
+	{
+	@foreach (var type in types)
+	{
+	<option value="@type">@type.Name</option>
+	}
+	}
+	</select>
+	</p>
 
+	<p>
+	<select @bind="model.methodName">
+	@if (model.methods != null)
+	{
+	@foreach (var method in model.methods)
+	{
+	<option value="@method.Name">@method.Name</option>
+	}
+	}
+	</select>
+	</p>
+	*@
+	<div>
+		<table style="display:inline-block;width:20%;">
+			<tr>
+				<th>Catalog</th>
+			</tr>
+			@foreach (var typeModel in model.typeModels)
+			{
 
-    <button class="btn btn-primary" type="submit">Call api</button>
+				<tr style="cursor:pointer;" @onclick="()=>typeModel.ShowMethods = !typeModel.ShowMethods">
+					@if (!typeModel.ShowMethods)
+					{
+						<td>&#x23F5;@typeModel.DisplayName</td>
+					}
+					else
+					{
+						<td>&#x23F7;@typeModel.DisplayName</td>
+					}
+				</tr>
+				if (typeModel.ShowMethods)
+				{
+					foreach (var methodModel in model.methodModels.Where(x => x.typeName == typeModel.type.Name))
+					{
+						<tr style="cursor:pointer;" @onclick="()=>methodModel.ShowFieldsAndSetParameters(model)">
+							<td style="padding-left: 20px">&nbsp;&nbsp;&#8226;&nbsp;@methodModel.DisplayName</td>
+						</tr>
+					}
+				}
+			}
+		</table>
+		<table style="display:inline-block;width:40%; vertical-align: top;">
+			<tr>
+				<th>Parameters</th>
+			</tr>
+			@if (model.parameters != null && model.paramResponses != null)
+			{
+				var index = 0;
+				@foreach (var parameter in model.parameters)
+				{
+					int loopIndex = index;
+					<tr>
+						<td style="padding-top: 10px;">@parameter.Name</td>
+						@if (parameter.ParameterType.Name == "String")
+						{
+							<td style="padding-top: 10px;">
+								<input @bind="model.paramResponses[loopIndex].value">
+							</td>
+						}
+						else if (parameter.ParameterType.Name == "Boolean")
+						{
+							<td style="padding-top: 10px;">
+								<input type="checkbox">
+							</td>
+						}
+						else if (parameter.ParameterType.Name == "Stream")
+						{
+							<InputFile multiple />
+						}
+						else
+						{
+							<td style="padding-top: 10px;">
+								@parameter.ParameterType.Name not supported
+							</td>
+						}
+					</tr>
+					index++;
+				}
+			}
+		</table>
+	</div>
+
+	<span>
+		<button class="btn btn-primary" type="submit">Call api</button>
+		<button class="btn btn-primary" type="submit">Generate Code</button>
+	</span>
 </EditForm>
 
+@if (generatedCode != null)
+{
+	<textarea rows="10" cols=100>
+		@generatedCode
+						</textarea>
+}
+
+
 @code {
-    public class ReflectionCallModel
-    {
-        public Auth auth { get; set; } = Auth.Token;
-        public string clientId { get; set; }
-        public string clientSecret { get; set; }
-        public string userId { get; set; }
-        public string token { get; set; }
+	public class TypeModel
+	{
+		public bool ShowMethods { get; set; }
+		public Type type { get; set; }
+		public string DisplayName { get; set; }
+	}
 
-        public Type type 
-        {
-            get { return type; }
-            set
-            {
-                type = value;
-                methods = ReflectionHelper.GetMethods("aaa");
-            }
-        }
+	public class MethodModel
+	{
+		public string typeName { get; set; }
+		public string fullTypeName { get; set; }
+		public MethodInfo methodInfo { get; set; }
+		public string DisplayName { get; set; }
+		public List<ParameterInfo> rootParameters { get; set; }
 
-        private string _typeName;
-        public string typeName
-        {
+		public void ShowFieldsAndSetParameters(ReflectionCallModel rootModel)
+		{
+			_showFields = !_showFields;
+			rootModel.parameters = ReflectionHelper.GetParameters(fullTypeName, methodInfo.Name);
+			rootModel.chosenType = typeName;
+			rootModel.chosenMethod = methodInfo.Name;
+			rootModel.paramResponses = new List<ParamResponse>();
+			for (int i = 0; i < rootModel.parameters.Count; i++)
+			{
+				rootModel.paramResponses.Add(new ParamResponse() { value = "" });
+			}
+		}
 
-            get { return _typeName; }
-            set
-            {
-                _typeName = value;
-                methods = ReflectionHelper.GetMethods(value);
-            }
-        }
+		private bool _showFields;
+		public bool ShowFields
+		{
+			get { return _showFields; }
+			set
+			{
+				_showFields = value;
+				if (_showFields)
+				{
+					rootParameters = ReflectionHelper.GetParameters(typeName, methodInfo.Name);
+				}
+			}
+		}
+	}
 
-        private string _methodName;
-        public string methodName
-        {
+	public class ReflectionCallModel
+	{
+		public Auth auth { get; set; } = Auth.Token;
+		public string clientId { get; set; }
+		public string clientSecret { get; set; }
+		public string userId { get; set; }
+		public string token { get; set; }
 
-            get { return _methodName; }
-            set
-            {
-                _methodName = value;
-                parameters = ReflectionHelper.GetParameters(typeName, value);
-            }
-        }
+		public Type type
+		{
+			get { return type; }
+			set
+			{
+				type = value;
+				methods = ReflectionHelper.GetMethods("aaa");
+			}
+		}
 
-        public List<MethodInfo> methods { get; set; } = null;
+		private string _typeName;
+		public string typeName
+		{
 
-        public List<ParameterInfo> parameters { get; set; } = null;
-    }
+			get { return _typeName; }
+			set
+			{
+				_typeName = value;
+				methods = ReflectionHelper.GetMethods(value);
+			}
+		}
 
-    public ReflectionCallModel model = new ReflectionCallModel();
+		private string _methodName;
+		public string methodName
+		{
 
-    private string jsonResponse;
-    private List<Type> types = ReflectionHelper.GetTypes();
+			get { return _methodName; }
+			set
+			{
+				_methodName = value;
+				parameters = ReflectionHelper.GetParameters(typeName, value);
+			}
+		}
 
-    private async Task callApi()
-    {
-        IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+		public List<MethodInfo> methods { get; set; } = null;
 
-        try
-        {
-            var res = await client.FoldersManager.GetFolderItemsAsync("0", 100);
-            jsonResponse = JsonSerializer.Serialize(res);
-            Console.WriteLine(res);
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
-    }
+		public List<ParameterInfo> parameters { get; set; } = null;
+
+		public string chosenType { get; set; }
+		public string chosenMethod { get; set; }
+
+		public List<ParamResponse> paramResponses { get; set; }
+
+		public string[] methodParams { get; set; } = new string[10];
+
+		public List<TypeModel> typeModels = toTypeModels();
+		public List<MethodModel> methodModels = toMethodModels();
+
+		public static List<TypeModel> toTypeModels()
+		{
+			return ReflectionHelper.GetTypes().Select(x => new TypeModel() { type = x, DisplayName = SplitCamelCase(x.Name.Replace("Box", "").Replace("Manager", "")) }).ToList();
+		}
+
+		public static List<MethodModel> toMethodModels()
+		{
+			var models = ReflectionHelper.GetTypes().Select(x => new TypeModel() { type = x }).ToList();
+			var allMethods = models.Select(x => x.type)
+			.Select(y => new MethodModelsList() { typeName = y.Name, fullTypeName = y.FullName, methodInfos = ReflectionHelper.GetMethods(y.FullName) })
+				.ToList();
+
+			var methodsModels = allMethods
+			.SelectMany(x => x.methodInfos
+				.Select(y => new MethodModel() { methodInfo = y, typeName = x.typeName, fullTypeName = x.fullTypeName, DisplayName = SplitCamelCase(y.Name.Replace("Async", "")) }))
+				.ToList();
+
+			return methodsModels;
+		}
+
+		public static string SplitCamelCase(string input)
+		{
+			string[] words = Regex.Matches(input, "(^[a-z]+|[A-Z]+(?![a-z])|[A-Z][a-z]+)")
+				.OfType<Match>()
+				.Select(m => m.Value)
+				.ToArray();
+			string result = string.Join(" ", words);
+			return result;
+		}
+	}
+
+	public ReflectionCallModel model = new ReflectionCallModel();
+
+	private string jsonResponse;
+	private string generatedCode;
+	private List<Type> types = ReflectionHelper.GetTypes();
+
+	public class MethodModelsList
+	{
+		public List<MethodInfo> methodInfos { get; set; }
+		public string typeName { get; set; }
+		public string fullTypeName { get; set; }
+	}
+
+	public class ParamResponse
+	{
+		public string value { get; set; }
+	}
+
+	private async Task callApi()
+	{
+		IBoxClient client = await ClientHelper.CreateBoxClient(model.auth, model.clientId, model.clientSecret, model.userId, model.token);
+
+		try
+		{
+			var res = await client.FoldersManager.GetFolderItemsAsync("0", 100);
+			jsonResponse = JsonSerializer.Serialize(res);
+			Console.WriteLine(res);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex);
+		}
+	}
+
+	private async Task generateCode()
+	{
+		if (model.auth == Auth.CCG)
+		{
+			foreach (var strResponse in model.paramResponses)
+			{
+				if (string.IsNullOrEmpty(strResponse.value))
+				{
+					strResponse.value = "null";
+				}
+				else
+				{
+					strResponse.value = "\"" + strResponse.value + "\"";
+				}
+			}
+			var args = String.Join(", ", model.paramResponses.Select(x => x.value));
+			generatedCode = $@"var boxConfig = new BoxConfigBuilder(""{model.clientId}"", ""{model.clientSecret}"").Build();
+var boxCCG = new BoxCCGAuth(boxConfig);
+var userToken = await boxCCG.UserTokenAsync(""{model.userId}"");
+IBoxClient userClient = boxCCG.UserClient(userToken, ""{model.userId}"");
+userClient.Auth.SessionAuthenticated += delegate(object o, SessionAuthenticatedEventArgs e)
+{{
+    string newAccessToken = e.Session.AccessToken;
+}};
+var result = await userClient.{model.chosenType}.{model.chosenMethod}({args});";
+		}
+	}
 }
