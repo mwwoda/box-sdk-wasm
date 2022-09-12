@@ -353,7 +353,7 @@ userClient.Auth.SessionAuthenticated += delegate(object o, SessionAuthenticatedE
 {{
     string newAccessToken = e.Session.AccessToken;
 }};
-var result = await userClient.{model.chosenType}.{model.chosenMethod}({args});";
+var result = await userClient.{model.chosenType.Replace("Box", "")}.{model.chosenMethod}({args});";
 		}
 	}
 }
